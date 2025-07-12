@@ -442,7 +442,7 @@ class InteractiveScraper:
         sort_choice = input("Pilih sorting (default: bestmatch): ").strip()
         sort_by = SORT_OPTIONS[int(sort_choice)-1] if sort_choice.isdigit() and 1 <= int(sort_choice) <= len(SORT_OPTIONS) else "bestmatch"
         
-        use_auth = input("Gunakan authentication? (y/n, default: y): ").strip().lower() != 'n'
+        use_auth = input("Gunakan authentication? (y/n, default: n): ").strip().lower() == 'y'
         
         print(f"\nMemulai scraping dengan parameter:")
         print(f"Query: {search_query}")
@@ -481,7 +481,7 @@ class InteractiveScraper:
                 max_pages=10,
                 year_from="2025",
                 sort_by="bestmatch",
-                use_auth=True
+                use_auth=False
             )
         elif choice == '2':
             df = self.scraper.scrape_with_filters(
@@ -489,7 +489,7 @@ class InteractiveScraper:
                 max_pages=5,
                 language="english",
                 sort_by="bestmatch",
-                use_auth=True
+                use_auth=False
             )
         elif choice == '3':
             df = self.scraper.scrape_with_filters(
@@ -497,7 +497,7 @@ class InteractiveScraper:
                 max_pages=5,
                 language="indonesian",
                 sort_by="bestmatch",
-                use_auth=True
+                use_auth=False
             )
         elif choice == '4':
             df = self.scraper.scrape_with_filters(
@@ -506,7 +506,7 @@ class InteractiveScraper:
                 year_from="2020",
                 year_to="2025",
                 sort_by="year",
-                use_auth=True
+                use_auth=False
             )
         else:
             print("Pilihan tidak valid!")
@@ -570,7 +570,7 @@ def scrape():
             year_to=data.get('year_to'),
             language=data.get('language'),
             sort_by=data.get('sort_by', 'bestmatch'),
-            use_auth=data.get('use_auth', True)
+            use_auth=data.get('use_auth', False)
         )
     
     thread = threading.Thread(target=scrape_background)
@@ -613,14 +613,14 @@ def main():
         elif mode == 'web':
             run_web_mode()
         elif mode == 'auto':
-            # Automatic scraping with default settings
+            # Automatic scraping with default settings (no authentication needed for metadata)
             scraper = EnhancedZLibraryScraper()
             df = scraper.scrape_with_filters(
                 search_query="gramedia",
                 max_pages=10,
                 year_from="2025",
                 sort_by="bestmatch",
-                use_auth=True
+                use_auth=False  # No Selenium needed for metadata scraping
             )
             scraper.print_summary(df)
         else:
