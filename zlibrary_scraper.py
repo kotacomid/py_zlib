@@ -124,6 +124,9 @@ class EnhancedZLibraryScraper:
         if sort_by:
             search_url += f"&order={sort_by}"
         
+        print(f"Search URL: {search_url}")
+        print("Starting scraping loop...")
+        
         for page in range(1, max_pages + 1):
             try:
                 self.scraping_status['current_page'] = page
@@ -131,15 +134,24 @@ class EnhancedZLibraryScraper:
                 # URL dengan parameter halaman
                 url = f"{self.base_url}{search_url}&page={page}"
                 print(f"Mengambil halaman {page}...")
+                print(f"Full URL: {url}")
                 
                 response = self.session.get(url, timeout=REQUEST_TIMEOUT)
+                print(f"Response status: {response.status_code}")
                 response.raise_for_status()
                 
                 soup = BeautifulSoup(response.content, 'lxml')
                 book_cards = soup.find_all("z-bookcard")
                 
+                print(f"Found {len(book_cards)} book cards on page {page}")
+                
                 if not book_cards:
                     print(f"Tidak ada data buku di halaman {page}")
+                    print("Checking page content...")
+                    # Save page content for debugging
+                    with open(f"debug_page_{page}.html", "w", encoding="utf-8") as f:
+                        f.write(response.text)
+                    print(f"Page content saved to debug_page_{page}.html")
                     continue
                 
                 print(f"Menemukan {len(book_cards)} buku di halaman {page}")
