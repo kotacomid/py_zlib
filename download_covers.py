@@ -59,13 +59,17 @@ def download_covers_with_tracking():
                 failed_count += 1
                 continue
             
-            # Determine file extension
-            ext = os.path.splitext(cover_url.split('/')[-1])[1]
-            if not ext or len(ext) > 5:
-                ext = ".jpg"
+            # Generate filename based on title and author
+            title = row.get('title', 'Unknown')
+            author = row.get('author', 'Unknown')
             
-            filename = f"{book_id}{ext}"
-            filepath = os.path.join(covers_dir, filename)
+            # Use config function to generate proper filename
+            from config import get_file_path
+            filepath = get_file_path(title, author, "jpg", "covers")
+            filename = os.path.basename(filepath)
+            
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
             
             # Skip if file already exists
             if os.path.exists(filepath):
@@ -77,7 +81,7 @@ def download_covers_with_tracking():
             
             try:
                 print(f"Downloading: {filename} - {title}")
-                resp = requests.get(cover_url, timeout=15)
+                resp = requests.get(cover_url, timeout=COVER_TIMEOUT)
                 
                 if resp.status_code == 200:
                     with open(filepath, "wb") as f:

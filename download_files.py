@@ -10,13 +10,13 @@ import requests
 import os
 import time
 from datetime import datetime
-from zlib_login import ZLibraryLogin
+from selenium_login import SeleniumZLibraryLogin
 from zlibrary_scraper import ZLibraryScraper
 from config import *
 
 class FileDownloader:
     def __init__(self):
-        self.login_manager = ZLibraryLogin()
+        self.login_manager = SeleniumZLibraryLogin()
         self.scraper = ZLibraryScraper()
         self.current_account_index = 0
         self.download_count = 0
@@ -24,9 +24,10 @@ class FileDownloader:
         
     def get_available_session(self):
         """Dapatkan session yang tersedia untuk download"""
-        session, account_index = self.login_manager.get_available_session()
-        if session:
+        account_index, account = self.login_manager.get_available_account()
+        if account_index is not None:
             self.current_account_index = account_index
+            session = self.login_manager.get_authenticated_session(account_index, headless=True)
             return session
         return None
     
@@ -39,7 +40,7 @@ class FileDownloader:
         # Coba rotate ke akun berikutnya
         for _ in range(len(ZLIBRARY_ACCOUNTS)):
             self.current_account_index = (self.current_account_index + 1) % len(ZLIBRARY_ACCOUNTS)
-            session = self.login_manager.login_account(self.current_account_index)
+            session = self.login_manager.get_authenticated_session(self.current_account_index, headless=True)
             if session:
                 print(f"✓ Switched ke akun: {ZLIBRARY_ACCOUNTS[self.current_account_index]['email']}")
                 return session
@@ -47,14 +48,18 @@ class FileDownloader:
         print("✗ Tidak ada akun yang tersedia")
         return None
     
-    def download_file(self, session, book_id, download_url, title, extension):
+    def download_file(self, session, book_id, download_url, title, extension, author):
         """Download file ebook dengan session yang diberikan"""
         if not download_url:
             return False, "NO_DOWNLOAD_URL"
         
-        # Determine filename
-        filename = f"{book_id}.{extension}"
-        filepath = os.path.join(f"{EBOOK_FOLDER}/{FILES_FOLDER}", filename)
+        # Generate filename based on title and author
+        from config import get_file_path
+        filepath = get_file_path(title, author, extension, "files")
+        filename = os.path.basename(filepath)
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
         
         # Skip if file already exists
         if os.path.exists(filepath):
@@ -64,7 +69,7 @@ class FileDownloader:
             print(f"Downloading: {filename} - {title}")
             
             # Download file
-            response = session.get(download_url, timeout=60, stream=True)
+            response = session.get(download_url, timeout=FILE_TIMEOUT, stream=True)
             
             if response.status_code == 200:
                 # Check if it's actually a file (not HTML error page)
@@ -74,13 +79,13 @@ class FileDownloader:
                 
                 # Save file
                 with open(filepath, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=8192):
+                    for chunk in response.iter_content(chunk_size=FILE_CHUNK_SIZE):
                         if chunk:
                             f.write(chunk)
                 
                 # Verify file size
                 file_size = os.path.getsize(filepath)
-                if file_size < 1000:  # File terlalu kecil, kemungkinan error
+                if file_size < MIN_FILE_SIZE:  # File terlalu kecil, kemungkinan error
                     os.remove(filepath)
                     return False, "FILE_TOO_SMALL"
                 
@@ -146,7 +151,8 @@ class FileDownloader:
                         break
                 
                 # Download file
-                success, status = self.download_file(session, book_id, download_url, title, extension)
+                author = row.get('author', 'Unknown')
+                success, status = self.download_file(session, book_id, download_url, title, extension, author)
                 
                 if success:
                     # Update CSV status

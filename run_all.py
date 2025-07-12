@@ -102,7 +102,8 @@ def main():
     print("2. download_covers.py - Download cover buku")
     print("3. download_files.py - Download file ebook (dengan multi-account)")
     print("4. analyze_books.py - Analisis data buku")
-    print(f"5. Semua hasil disimpan di folder '{EBOOK_FOLDER}'")
+    print("5. web_interface.py - Web interface untuk kontrol")
+    print(f"6. Semua hasil disimpan di folder '{EBOOK_FOLDER}'")
     print("="*60)
     
     # Cek dependensi
@@ -120,7 +121,8 @@ def main():
         ("zlibrary_scraper.py", "Z-Library Metadata Scraper"),
         ("download_covers.py", "Cover Downloader"),
         ("download_files.py", "File Downloader"),
-        ("analyze_books.py", "Book Data Analyzer")
+        ("analyze_books.py", "Book Data Analyzer"),
+        ("web_interface.py", "Web Interface")
     ]
     
     for script_file, description in scripts:
@@ -162,6 +164,26 @@ def main():
         print("\nMenunggu 3 detik sebelum analisis...")
         time.sleep(3)
         run_script("analyze_books.py", "Book Data Analyzer")
+        
+        # Step 5: Web Interface
+        print("\n" + "="*60)
+        print("WEB INTERFACE")
+        print("="*60)
+        print("⚠️  PERINGATAN: Web interface akan menggunakan port 5000")
+        print("   Pastikan port 5000 tidak digunakan oleh aplikasi lain")
+        print("\nLanjutkan dengan web interface? (y/n): ", end="")
+        
+        try:
+            choice = input().strip().lower()
+            if choice in ['y', 'yes', 'ya']:
+                print("\nStarting web interface...")
+                print("Access at: http://127.0.0.1:5000")
+                print("Press Ctrl+C to stop the web interface")
+                run_script("web_interface.py", "Web Interface")
+            else:
+                print("Web interface dilewati.")
+        except KeyboardInterrupt:
+            print("\nWeb interface dibatalkan.")
         
         print("\n" + "="*60)
         print("WORKFLOW SELESAI!")

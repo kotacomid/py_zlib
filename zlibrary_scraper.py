@@ -35,56 +35,89 @@ class ZLibraryScraper:
         for folder in folders:
             os.makedirs(folder, exist_ok=True)
         
-    def scrape_gramedia_books(self, max_pages=10, search_query=None):
+    def scrape_gramedia_books(self, max_pages=10, search_query=None, year_from=None, year_to=None, 
+                             language=None, sort_order=None):
         """
-        Scrape buku dari pencarian Gramedia di Z-Library
+        Scrape buku dari pencarian Gramedia di Z-Library dengan filter lanjutan
         Fokus hanya pada pengumpulan metadata
         Akan scrape dari page 1 sampai max_pages (default 10)
         
         Args:
             max_pages (int): Jumlah halaman maksimal yang akan di-scrape
-            search_query (str, optional): Query pencarian tambahan (kosong jika tidak di-set)
+            search_query (str, optional): Query pencarian tambahan
+            year_from (str, optional): Tahun mulai filter
+            year_to (str, optional): Tahun akhir filter
+            language (str, optional): Filter bahasa (english/indonesian)
+            sort_order (str, optional): Urutan sorting
         """
         all_books = []
         print("Memulai scraping metadata...")
         print("="*50)
         
-        # Gunakan query utama jika tidak ada search_query
+        # Build search URL with parameters
+        search_url = SEARCH_URL
+        params = []
+        
         if search_query:
-            search_url = f"{SEARCH_URL}?q={search_query}"
-            print(f"Menggunakan query: {search_query}")
+            params.append(f"q={search_query}")
+            print(f"Query: {search_query}")
+        
+        if year_from:
+            params.append(f"yearFrom={year_from}")
+            print(f"Year from: {year_from}")
+            
+        if year_to:
+            params.append(f"yearTo={year_to}")
+            print(f"Year to: {year_to}")
+            
+        if language and language in SUPPORTED_LANGUAGES:
+            params.append(f"language={language}")
+            print(f"Language: {language}")
+            
+        if sort_order and sort_order in SORT_OPTIONS:
+            params.append(f"order={sort_order}")
+            print(f"Sort order: {sort_order}")
         else:
-            search_url = SEARCH_URL
-            print("Menggunakan query utama: gramedia")
+            params.append(f"order={DEFAULT_ORDER}")
+            print(f"Sort order: {DEFAULT_ORDER} (default)")
+        
+        # Build final URL
+        if params:
+            search_url += "?" + "&".join(params)
+        
+        print(f"Search URL: {search_url}")
+        print("="*50)
             
         for page in range(1, max_pages + 1):
             try:
-                # URL dengan parameter halaman dan filter
-                url = (
-                    f"{self.base_url}{search_url}"
-                    f"{'&' if '?' in search_url else '?'}"
-                    f"&order={DEFAULT_ORDER}"
-                    f"&page={page}"
-                )
+                # URL dengan parameter halaman
+                url = f"{self.base_url}{search_url}&page={page}"
                 print(f"Mengambil halaman {page}...")
+                
                 response = requests.get(url, headers=self.headers, timeout=REQUEST_TIMEOUT)
                 response.raise_for_status()
                 soup = BeautifulSoup(response.content, 'lxml')
                 book_cards = soup.find_all("z-bookcard")
+                
                 if not book_cards:
                     print(f"Tidak ada data buku di halaman {page}")
                     continue
+                    
                 print(f"Menemukan {len(book_cards)} buku di halaman {page}")
+                
                 for card in book_cards:
                     book_info = self._extract_book_info(card, page)
                     all_books.append(book_info)
+                    
                 time.sleep(DELAY_BETWEEN_REQUESTS)
+                
             except requests.exceptions.RequestException as e:
                 print(f"Error saat mengambil halaman {page}: {e}")
                 time.sleep(RETRY_DELAY)
             except Exception as e:
                 print(f"Error tidak terduga di halaman {page}: {e}")
                 time.sleep(RETRY_DELAY)
+                
         print(f"\nScraping selesai! Total {len(all_books)} buku dari {max_pages} halaman")
         return pd.DataFrame(all_books)
     
@@ -239,6 +272,20 @@ class ZLibraryScraper:
         print(f"Ditemukan {len(results)} hasil untuk '{keyword}' di kolom '{field}'.")
         return results
 
+    def remove_duplicates(self, df):
+        """Remove duplicate books based on title and author"""
+        print("Checking for duplicates...")
+        initial_count = len(df)
+        
+        # Remove duplicates based on title and author
+        df_clean = df.drop_duplicates(subset=['title', 'author'], keep='first')
+        
+        removed_count = initial_count - len(df_clean)
+        print(f"Removed {removed_count} duplicate entries")
+        print(f"Remaining: {len(df_clean)} unique books")
+        
+        return df_clean
+    
     def update_download_status(self, book_id, status_type, status_value, account_email=""):
         """Update status download untuk buku tertentu"""
         csv_file = OUTPUT_FILES['csv']
@@ -273,41 +320,169 @@ class ZLibraryScraper:
             return False
 
 def main():
-    """Fungsi utama - hanya mengumpulkan metadata"""
-    print("Z-Library Metadata Scraper")
+    """Interactive Z-Library Metadata Scraper"""
+    print("Z-Library Metadata Scraper - Interactive Mode")
     print("="*50)
     
-    # Buat instance scraper
+    # Create scraper instance
     scraper = ZLibraryScraper()
     
-    # Scrape metadata sampai halaman 10
-    print("Memulai pengumpulan metadata dari Z-Library...")
-    print("Scraping akan mengambil sampai 10 halaman")
-    print("Menggunakan query utama: gramedia")
-    print("Untuk menambah query pencarian, gunakan: scraper.scrape_gramedia_books(max_pages=10, search_query='novel')")
-    
-    # Scrape dengan query utama saja (tanpa search_query tambahan)
-    df = scraper.scrape_gramedia_books(max_pages=10)  # 10 halaman
-    
-    if df is not None and not df.empty:
-        # Tampilkan ringkasan
-        scraper.print_summary(df)
+    while True:
+        print("\n" + "="*50)
+        print("Z-LIBRARY SCRAPER MENU")
+        print("="*50)
+        print("Options:")
+        print("1. Quick scrape (default settings)")
+        print("2. Advanced scrape with filters")
+        print("3. Load existing metadata")
+        print("4. Remove duplicates from existing data")
+        print("5. Search in existing metadata")
+        print("6. Show summary of existing data")
+        print("7. Exit")
         
-        # Tampilkan 5 data pertama
-        print("\n5 Metadata Buku Pertama:")
-        print(df[['title', 'author', 'publisher', 'year', 'rating', 'cover_downloaded', 'file_downloaded']].head())
-        
-        # Simpan metadata ke berbagai format di folder ebook
-        scraper.save_to_csv(df)
-        scraper.save_to_excel(df)
-        scraper.save_to_json(df)
-        
-        print(f"\nMetadata scraping selesai! Semua file disimpan di folder '{EBOOK_FOLDER}'")
-        print("Langkah selanjutnya:")
-        print("1. python download_covers.py - untuk download cover")
-        print("2. python download_files.py - untuk download file")
-    else:
-        print("Tidak ada metadata yang berhasil diambil.")
+        try:
+            choice = input("\nEnter your choice (1-7): ").strip()
+            
+            if choice == "1":
+                # Quick scrape with default settings
+                print("\nQuick scrape with default settings:")
+                print("- Query: gramedia")
+                print("- Pages: 10")
+                print("- Language: All")
+                print("- Sort: Best match")
+                
+                confirm = input("Continue? (y/n): ").strip().lower()
+                if confirm in ['y', 'yes']:
+                    df = scraper.scrape_gramedia_books(max_pages=10)
+                    if df is not None and not df.empty:
+                        # Remove duplicates
+                        df = scraper.remove_duplicates(df)
+                        
+                        # Save data
+                        scraper.save_to_csv(df)
+                        scraper.save_to_excel(df)
+                        scraper.save_to_json(df)
+                        
+                        # Show summary
+                        scraper.print_summary(df)
+                        
+            elif choice == "2":
+                # Advanced scrape with filters
+                print("\nAdvanced scrape with filters:")
+                
+                # Get parameters
+                max_pages = input("Max pages (default 10): ").strip()
+                max_pages = int(max_pages) if max_pages.isdigit() else 10
+                
+                search_query = input("Search query (default: gramedia): ").strip()
+                search_query = search_query if search_query else "gramedia"
+                
+                year_from = input("Year from (optional): ").strip()
+                year_from = year_from if year_from else None
+                
+                year_to = input("Year to (optional): ").strip()
+                year_to = year_to if year_to else None
+                
+                print(f"\nAvailable languages: {', '.join(SUPPORTED_LANGUAGES)}")
+                language = input("Language (optional): ").strip()
+                language = language if language in SUPPORTED_LANGUAGES else None
+                
+                print(f"\nAvailable sort options: {', '.join(SORT_OPTIONS)}")
+                sort_order = input("Sort order (optional): ").strip()
+                sort_order = sort_order if sort_order in SORT_OPTIONS else None
+                
+                confirm = input("\nStart scraping with these settings? (y/n): ").strip().lower()
+                if confirm in ['y', 'yes']:
+                    df = scraper.scrape_gramedia_books(
+                        max_pages=max_pages,
+                        search_query=search_query,
+                        year_from=year_from,
+                        year_to=year_to,
+                        language=language,
+                        sort_order=sort_order
+                    )
+                    
+                    if df is not None and not df.empty:
+                        # Remove duplicates
+                        df = scraper.remove_duplicates(df)
+                        
+                        # Save data
+                        scraper.save_to_csv(df)
+                        scraper.save_to_excel(df)
+                        scraper.save_to_json(df)
+                        
+                        # Show summary
+                        scraper.print_summary(df)
+                        
+            elif choice == "3":
+                # Load existing metadata
+                csv_file = OUTPUT_FILES['csv']
+                if os.path.exists(csv_file):
+                    df = pd.read_csv(csv_file)
+                    print(f"✓ Loaded {len(df)} records from {csv_file}")
+                    scraper.print_summary(df)
+                else:
+                    print(f"✗ No existing metadata found at {csv_file}")
+                    
+            elif choice == "4":
+                # Remove duplicates from existing data
+                csv_file = OUTPUT_FILES['csv']
+                if os.path.exists(csv_file):
+                    df = pd.read_csv(csv_file)
+                    print(f"Loaded {len(df)} records")
+                    
+                    df_clean = scraper.remove_duplicates(df)
+                    
+                    # Save cleaned data
+                    scraper.save_to_csv(df_clean)
+                    scraper.save_to_excel(df_clean)
+                    scraper.save_to_json(df_clean)
+                    
+                    print("✓ Duplicates removed and data saved!")
+                else:
+                    print(f"✗ No existing metadata found at {csv_file}")
+                    
+            elif choice == "5":
+                # Search in existing metadata
+                csv_file = OUTPUT_FILES['csv']
+                if os.path.exists(csv_file):
+                    df = pd.read_csv(csv_file)
+                    print(f"Loaded {len(df)} records")
+                    
+                    keyword = input("Enter search keyword: ").strip()
+                    if keyword:
+                        field = input("Search in field (title/author/publisher, default: title): ").strip()
+                        field = field if field in df.columns else 'title'
+                        
+                        results = scraper.search_metadata(df, keyword, field)
+                        if not results.empty:
+                            print("\nSearch results:")
+                            print(results[['title', 'author', 'publisher', 'year']].head(10))
+                else:
+                    print(f"✗ No existing metadata found at {csv_file}")
+                    
+            elif choice == "6":
+                # Show summary of existing data
+                csv_file = OUTPUT_FILES['csv']
+                if os.path.exists(csv_file):
+                    df = pd.read_csv(csv_file)
+                    scraper.print_summary(df)
+                else:
+                    print(f"✗ No existing metadata found at {csv_file}")
+                    
+            elif choice == "7":
+                # Exit
+                print("Goodbye!")
+                break
+                
+            else:
+                print("Invalid choice! Please enter 1-7.")
+                
+        except KeyboardInterrupt:
+            print("\n\nGoodbye!")
+            break
+        except Exception as e:
+            print(f"Error: {e}")
 
 if __name__ == "__main__":
     main() 

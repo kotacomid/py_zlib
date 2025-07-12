@@ -14,6 +14,8 @@ from selenium.webdriver.support import expected_conditions as EC
 import time
 import requests
 import json
+import os
+from datetime import datetime
 from config import *
 
 class SeleniumZLibraryLogin:
@@ -182,11 +184,14 @@ class SeleniumZLibraryLogin:
             if self.driver:
                 self.driver.quit()
     
-    def save_session_cookies(self, filename="authenticated_cookies.json"):
+    def save_session_cookies(self, filename=None):
         """Save session cookies to file for later use"""
         if not self.session:
             print("✗ No session available to save")
             return False
+        
+        if filename is None:
+            filename = f"{EBOOK_FOLDER}/{LOGS_FOLDER}/authenticated_cookies.json"
             
         try:
             cookies_data = []
@@ -198,6 +203,9 @@ class SeleniumZLibraryLogin:
                     'path': cookie.path
                 })
             
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
+            
             with open(filename, 'w') as f:
                 json.dump(cookies_data, f, indent=2)
             
@@ -208,8 +216,11 @@ class SeleniumZLibraryLogin:
             print(f"✗ Error saving cookies: {e}")
             return False
     
-    def load_session_cookies(self, filename="authenticated_cookies.json"):
+    def load_session_cookies(self, filename=None):
         """Load session cookies from file"""
+        if filename is None:
+            filename = f"{EBOOK_FOLDER}/{LOGS_FOLDER}/authenticated_cookies.json"
+            
         try:
             with open(filename, 'r') as f:
                 cookies_data = json.load(f)
@@ -233,48 +244,147 @@ class SeleniumZLibraryLogin:
             print(f"✗ Error loading cookies: {e}")
             return None
 
+    def reset_daily_downloads(self):
+        """Reset daily download counts for all accounts"""
+        today = datetime.now().strftime("%Y-%m-%d")
+        
+        for account in ZLIBRARY_ACCOUNTS:
+            if account['last_reset'] != today:
+                account['daily_downloads'] = 0
+                account['last_reset'] = today
+                print(f"✓ Reset daily downloads for {account['email']}")
+    
+    def increment_download_count(self, account_index):
+        """Increment download count for specific account"""
+        if 0 <= account_index < len(ZLIBRARY_ACCOUNTS):
+            ZLIBRARY_ACCOUNTS[account_index]['daily_downloads'] += 1
+            print(f"✓ Incremented download count for {ZLIBRARY_ACCOUNTS[account_index]['email']}")
+    
+    def get_available_account(self):
+        """Get first available account with remaining downloads"""
+        self.reset_daily_downloads()
+        
+        for i, account in enumerate(ZLIBRARY_ACCOUNTS):
+            if account['daily_downloads'] < account['max_daily_downloads']:
+                return i, account
+        return None, None
+    
+    def print_account_status(self):
+        """Print current status of all accounts"""
+        print("\nAccount Status:")
+        print("-" * 50)
+        for i, account in enumerate(ZLIBRARY_ACCOUNTS):
+            status = "✓" if account['daily_downloads'] < account['max_daily_downloads'] else "✗"
+            print(f"{status} {account['email']} - {account['daily_downloads']}/{account['max_daily_downloads']} downloads")
+        print()
+
 def main():
-    """Test Selenium login with cookie transfer"""
+    """Interactive Selenium login with cookie transfer"""
     print("Selenium Z-Library Login with Cookie Transfer")
     print("="*50)
-    
-    # Show account status
-    print("Account Status:")
-    for i, account in enumerate(ZLIBRARY_ACCOUNTS):
-        status = "✓" if account['daily_downloads'] < account['max_daily_downloads'] else "✗"
-        print(f"{status} {account['email']} - {account['daily_downloads']}/{account['max_daily_downloads']} downloads")
-    print()
     
     # Create login manager
     login_manager = SeleniumZLibraryLogin()
     
-    # Get authenticated session
-    print("Starting Selenium login process...")
-    session = login_manager.get_authenticated_session(account_index=0, headless=False)
-    
-    if session:
-        print("✓ Successfully obtained authenticated session!")
+    while True:
+        print("\n" + "="*50)
+        print("Z-LIBRARY LOGIN MENU")
+        print("="*50)
+        login_manager.print_account_status()
         
-        # Save cookies for later use
-        login_manager.save_session_cookies()
+        print("Options:")
+        print("1. Login with specific account")
+        print("2. Auto-login with available account")
+        print("3. Load existing session")
+        print("4. Test current session")
+        print("5. Save current session")
+        print("6. Reset daily download counts")
+        print("7. Exit")
         
-        # Test the session with a simple request
-        print("\nTesting authenticated session...")
         try:
-            response = session.get(f"{BASE_URL}/")
-            print(f"Response status: {response.status_code}")
-            print(f"Page title contains 'Z-Library': {'Z-Library' in response.text}")
+            choice = input("\nEnter your choice (1-7): ").strip()
             
-            # Check if we can access authenticated features
-            if 'logout' in response.text.lower():
-                print("✓ Session can access authenticated features")
-            else:
-                print("✗ Session may not be fully authenticated")
+            if choice == "1":
+                # Login with specific account
+                print("\nAvailable accounts:")
+                for i, account in enumerate(ZLIBRARY_ACCOUNTS):
+                    print(f"{i+1}. {account['email']}")
                 
+                try:
+                    account_choice = int(input("Select account (1-{}): ".format(len(ZLIBRARY_ACCOUNTS)))) - 1
+                    if 0 <= account_choice < len(ZLIBRARY_ACCOUNTS):
+                        headless = input("Run in headless mode? (y/n): ").strip().lower() != 'n'
+                        session = login_manager.get_authenticated_session(account_choice, headless=headless)
+                        if session:
+                            print("✓ Login successful!")
+                            login_manager.save_session_cookies()
+                        else:
+                            print("✗ Login failed!")
+                    else:
+                        print("Invalid account selection!")
+                except ValueError:
+                    print("Invalid input!")
+                    
+            elif choice == "2":
+                # Auto-login with available account
+                account_index, account = login_manager.get_available_account()
+                if account_index is None:
+                    print("✗ No available accounts!")
+                else:
+                    print(f"Attempting login with: {account['email']}")
+                    session = login_manager.get_authenticated_session(account_index, headless=True)
+                    if session:
+                        print("✓ Login successful!")
+                        login_manager.save_session_cookies()
+                    else:
+                        print("✗ Login failed!")
+                        
+            elif choice == "3":
+                # Load existing session
+                session = login_manager.load_session_cookies()
+                if session and login_manager.test_authenticated_session():
+                    print("✓ Session loaded and authenticated!")
+                else:
+                    print("✗ Failed to load valid session!")
+                    
+            elif choice == "4":
+                # Test current session
+                if login_manager.session:
+                    if login_manager.test_authenticated_session():
+                        print("✓ Current session is valid!")
+                    else:
+                        print("✗ Current session is invalid!")
+                else:
+                    print("✗ No session available!")
+                    
+            elif choice == "5":
+                # Save current session
+                if login_manager.session:
+                    if login_manager.save_session_cookies():
+                        print("✓ Session saved!")
+                    else:
+                        print("✗ Failed to save session!")
+                else:
+                    print("✗ No session to save!")
+                    
+            elif choice == "6":
+                # Reset daily download counts
+                login_manager.reset_daily_downloads()
+                print("✓ Daily download counts reset!")
+                
+            elif choice == "7":
+                # Exit
+                print("Goodbye!")
+                break
+                
+            else:
+                print("Invalid choice! Please enter 1-7.")
+                
+        except KeyboardInterrupt:
+            print("\n\nGoodbye!")
+            break
         except Exception as e:
-            print(f"✗ Error testing session: {e}")
-    else:
-        print("✗ Failed to obtain authenticated session")
+            print(f"Error: {e}")
 
 if __name__ == "__main__":
     main()
