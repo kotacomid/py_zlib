@@ -126,6 +126,11 @@ class EnhancedZLibraryScraper:
         
         print(f"Search URL: {search_url}")
         print("Starting scraping loop...")
+        print(f"Base URL: {self.base_url}")
+        if self.session:
+            print(f"Session headers: {dict(self.session.headers)}")
+        else:
+            print("No session available!")
         
         for page in range(1, max_pages + 1):
             try:
@@ -136,8 +141,10 @@ class EnhancedZLibraryScraper:
                 print(f"Mengambil halaman {page}...")
                 print(f"Full URL: {url}")
                 
+                print(f"Making request to: {url}")
                 response = self.session.get(url, timeout=REQUEST_TIMEOUT)
                 print(f"Response status: {response.status_code}")
+                print(f"Response headers: {dict(response.headers)}")
                 response.raise_for_status()
                 
                 soup = BeautifulSoup(response.content, 'lxml')
