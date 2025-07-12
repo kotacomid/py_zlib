@@ -98,12 +98,11 @@ def main():
     print("Z-Library Scraper & Downloader - Complete Workflow")
     print("="*60)
     print("Workflow yang akan dijalankan:")
-    print("1. zlibrary_scraper.py - Scraping metadata dari Z-Library (query: gramedia)")
-    print("2. download_covers.py - Download cover buku")
-    print("3. download_files.py - Download file ebook (dengan multi-account)")
-    print("4. analyze_books.py - Analisis data buku")
-    print("5. web_interface.py - Web interface untuk kontrol")
-    print(f"6. Semua hasil disimpan di folder '{EBOOK_FOLDER}'")
+    print("1. zlibrary_enhanced.py - Enhanced scraping dengan official package")
+    print("2. download_enhanced.py - Enhanced download dengan async support")
+    print("3. analyze_books.py - Analisis data buku")
+    print("4. web_interface.py - Web interface untuk kontrol")
+    print(f"5. Semua hasil disimpan di folder '{EBOOK_FOLDER}'")
     print("="*60)
     
     # Cek dependensi
@@ -119,8 +118,10 @@ def main():
     # Cek apakah file script ada
     scripts = [
         ("zlibrary_scraper.py", "Z-Library Metadata Scraper"),
+        ("zlibrary_enhanced.py", "Enhanced Z-Library Scraper (Recommended)"),
         ("download_covers.py", "Cover Downloader"),
         ("download_files.py", "File Downloader"),
+        ("download_enhanced.py", "Enhanced Download Manager (Recommended)"),
         ("analyze_books.py", "Book Data Analyzer"),
         ("web_interface.py", "Web Interface")
     ]
@@ -133,34 +134,65 @@ def main():
     # Jalankan workflow lengkap
     print("\nMemulai workflow lengkap...")
     
-    # Step 1: Metadata Scraping
-    success = run_script("zlibrary_scraper.py", "Z-Library Metadata Scraper")
+    # Step 1: Enhanced Metadata Scraping
+    print("\n" + "="*60)
+    print("ENHANCED SCRAPING WITH OFFICIAL PACKAGE")
+    print("="*60)
+    print("⚠️  RECOMMENDED: Using enhanced scraper with official zlibrary package")
+    print("   This provides better reliability and features")
+    print("\nUse enhanced scraper? (y/n): ", end="")
+    
+    try:
+        choice = input().strip().lower()
+        if choice in ['y', 'yes', 'ya']:
+            success = run_script("zlibrary_enhanced.py", "Enhanced Z-Library Scraper")
+        else:
+            success = run_script("zlibrary_scraper.py", "Z-Library Metadata Scraper")
+    except KeyboardInterrupt:
+        print("\nUsing default scraper...")
+        success = run_script("zlibrary_scraper.py", "Z-Library Metadata Scraper")
     
     if success:
-        # Step 2: Cover Download
-        print("\nMenunggu 3 detik sebelum download cover...")
-        time.sleep(3)
-        run_script("download_covers.py", "Cover Downloader")
-        
-        # Step 3: File Download (dengan konfirmasi)
+        # Step 2: Enhanced Download (dengan konfirmasi)
         print("\n" + "="*60)
-        print("DOWNLOAD FILE EBOOK")
+        print("ENHANCED DOWNLOAD WITH ASYNC SUPPORT")
         print("="*60)
-        print("⚠️  PERINGATAN: Download file akan menggunakan akun Z-Library")
-        print("   Pastikan akun sudah dikonfigurasi dengan benar di config.py")
-        print("   Setiap akun memiliki limit 10 download per hari")
-        print("\nLanjutkan dengan download file? (y/n): ", end="")
+        print("⚠️  RECOMMENDED: Using enhanced download manager with async support")
+        print("   This provides better performance and reliability")
+        print("\nUse enhanced download manager? (y/n): ", end="")
         
         try:
             choice = input().strip().lower()
             if choice in ['y', 'yes', 'ya']:
-                run_script("download_files.py", "File Downloader")
+                run_script("download_enhanced.py", "Enhanced Download Manager")
             else:
-                print("Download file dilewati.")
+                # Fallback to original downloaders
+                print("\nMenunggu 3 detik sebelum download cover...")
+                time.sleep(3)
+                run_script("download_covers.py", "Cover Downloader")
+                
+                print("\n" + "="*60)
+                print("DOWNLOAD FILE EBOOK")
+                print("="*60)
+                print("⚠️  PERINGATAN: Download file akan menggunakan akun Z-Library")
+                print("   Pastikan akun sudah dikonfigurasi dengan benar di config.py")
+                print("   Setiap akun memiliki limit 10 download per hari")
+                print("\nLanjutkan dengan download file? (y/n): ", end="")
+                
+                try:
+                    choice = input().strip().lower()
+                    if choice in ['y', 'yes', 'ya']:
+                        run_script("download_files.py", "File Downloader")
+                    else:
+                        print("Download file dilewati.")
+                except KeyboardInterrupt:
+                    print("\nDownload file dibatalkan.")
         except KeyboardInterrupt:
-            print("\nDownload file dibatalkan.")
+            print("\nUsing original downloaders...")
+            run_script("download_covers.py", "Cover Downloader")
+            run_script("download_files.py", "File Downloader")
         
-        # Step 4: Analysis
+        # Step 3: Analysis
         print("\nMenunggu 3 detik sebelum analisis...")
         time.sleep(3)
         run_script("analyze_books.py", "Book Data Analyzer")

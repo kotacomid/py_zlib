@@ -18,21 +18,24 @@ A comprehensive scraping and download system for Z-Library with interactive and 
 
 ```
 zlib_scraper/
-├── config.py              # Configuration and settings
-├── selenium_login.py      # Selenium-based login system
-├── zlibrary_scraper.py    # Main scraping engine
-├── download_covers.py     # Cover download manager
-├── download_files.py      # File download with rotation
-├── web_interface.py       # Flask web interface
-├── run_all.py            # Complete workflow runner
-├── analyze_books.py      # Data analysis tools
-├── requirements.txt      # Python dependencies
-└── zlib_data/           # Output directory
-    ├── covers/          # Downloaded cover images
-    ├── files/           # Downloaded ebook files
-    ├── logs/            # System logs
-    ├── analysis/        # Analysis reports
-    └── zlib_metadata.csv # Main metadata file
+├── config.py                  # Configuration and settings
+├── selenium_login.py          # Selenium-based login system
+├── zlibrary_scraper.py        # Main scraping engine
+├── zlibrary_enhanced.py       # Enhanced scraper (RECOMMENDED)
+├── download_covers.py         # Cover download manager
+├── download_files.py          # File download with rotation
+├── download_enhanced.py       # Enhanced download manager (RECOMMENDED)
+├── web_interface.py           # Flask web interface
+├── run_all.py                # Complete workflow runner
+├── analyze_books.py          # Data analysis tools
+├── install.py                # Installation script
+├── requirements.txt          # Python dependencies
+└── zlib_data/               # Output directory
+    ├── covers/              # Downloaded cover images
+    ├── files/               # Downloaded ebook files
+    ├── logs/                # System logs
+    ├── analysis/            # Analysis reports
+    └── zlib_metadata.csv    # Main metadata file
 ```
 
 ## Installation
@@ -82,6 +85,26 @@ Run the complete workflow:
 ```bash
 python run_all.py
 ```
+
+### Enhanced Mode (Recommended)
+
+#### 1. Enhanced Scraping
+```bash
+python zlibrary_enhanced.py
+```
+- Uses official zlibrary package for better reliability
+- Async support for faster performance
+- Advanced filtering and search options
+- Automatic duplicate removal
+
+#### 2. Enhanced Download Manager
+```bash
+python download_enhanced.py
+```
+- Async downloads with concurrency control
+- Better error handling and retry logic
+- Download statistics and progress tracking
+- Automatic status updates in CSV
 
 ### Interactive Mode
 
@@ -200,6 +223,39 @@ zlib_data/
 
 ### Custom Scraping Parameters
 
+#### Enhanced Scraper (Recommended)
+```python
+from zlibrary_enhanced import EnhancedZLibraryScraper
+
+scraper = EnhancedZLibraryScraper()
+
+# Advanced scraping with filters
+df = scraper.scrape_gramedia_books(
+    max_pages=20,
+    search_query="novel",
+    year_from="2020",
+    year_to="2024",
+    language="english",
+    sort_order="year"
+)
+
+# Batch download with async support
+import asyncio
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
+
+# Download books
+updated_df = loop.run_until_complete(
+    scraper.download_books_batch_async(df, max_concurrent=5)
+)
+
+# Download covers
+updated_df = loop.run_until_complete(
+    scraper.download_covers_batch_async(df, max_concurrent=10)
+)
+```
+
+#### Original Scraper
 ```python
 from zlibrary_scraper import ZLibraryScraper
 
