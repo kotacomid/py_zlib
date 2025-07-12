@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Z-Library Scraper</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .row {
+            display: flex;
+            gap: 20px;
+        }
+        .col {
+            flex: 1;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .status.running {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .status.completed {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .progress {
+            margin-top: 10px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 20px;
+            background-color: #007bff;
+            transition: width 0.3s ease;
+        }
+        .metadata-table {
+            margin-top: 30px;
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .metadata-table th,
+        .metadata-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .metadata-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Z-Library Scraper</h1>
+        
+        <form id="scrapeForm">
+            <div class="row">
+                <div class="col">
+                    <div class="form-group">
+                        <label for="query">Search Query:</label>
+                        <input type="text" id="query" name="query" value="gramedia" required>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="form-group">
+                        <label for="max_pages">Max Pages:</label>
+                        <input type="number" id="max_pages" name="max_pages" value="10" min="1" max="50" required>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col">
+                    <div class="form-group">
+                        <label for="year_from">Year From:</label>
+                        <input type="number" id="year_from" name="year_from" placeholder="e.g., 2020">
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="form-group">
+                        <label for="year_to">Year To:</label>
+                        <input type="number" id="year_to" name="year_to" placeholder="e.g., 2025">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col">
+                    <div class="form-group">
+                        <label for="language">Language:</label>
+                        <select id="language" name="language">
+                            <option value="">All Languages</option>
+                            <option value="english">English</option>
+                            <option value="indonesian">Indonesian</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="form-group">
+                        <label for="sort_by">Sort By:</label>
+                        <select id="sort_by" name="sort_by">
+                            <option value="bestmatch">Best Match</option>
+                            <option value="title">Title</option>
+                            <option value="author">Author</option>
+                            <option value="year">Year</option>
+                            <option value="rating">Rating</option>
+                            <option value="downloads">Downloads</option>
+                            <option value="date">Date</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="use_auth" name="use_auth" checked>
+                    Use Authentication
+                </label>
+            </div>
+            
+            <button type="submit" id="startBtn">Start Scraping</button>
+            <button type="button" id="stopBtn" disabled>Stop Scraping</button>
+            <button type="button" id="refreshBtn">Refresh Status</button>
+        </form>
+        
+        <div id="status" class="status"></div>
+        
+        <div id="stats" class="stats" style="display: none;">
+            <div class="stat-item">
+                <div class="stat-number" id="totalBooks">0</div>
+                <div class="stat-label">Total Books</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="coversDownloaded">0</div>
+                <div class="stat-label">Covers Downloaded</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="filesDownloaded">0</div>
+                <div class="stat-label">Files Downloaded</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="pendingDownloads">0</div>
+                <div class="stat-label">Pending Downloads</div>
+            </div>
+        </div>
+        
+        <div id="metadataTable" style="display: none;">
+            <h3>Recent Metadata</h3>
+            <table class="metadata-table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Author</th>
+                        <th>Year</th>
+                        <th>Language</th>
+                        <th>Cover Status</th>
+                        <th>File Status</th>
+                    </tr>
+                </thead>
+                <tbody id="metadataBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let statusInterval;
+        
+        document.getElementById('scrapeForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            startScraping();
+        });
+        
+        document.getElementById('stopBtn').addEventListener('click', function() {
+            stopScraping();
+        });
+        
+        document.getElementById('refreshBtn').addEventListener('click', function() {
+            refreshStatus();
+        });
+        
+        function startScraping() {
+            const formData = new FormData(document.getElementById('scrapeForm'));
+            const data = {
+                query: formData.get('query'),
+                max_pages: parseInt(formData.get('max_pages')),
+                year_from: formData.get('year_from') || null,
+                year_to: formData.get('year_to') || null,
+                language: formData.get('language') || null,
+                sort_by: formData.get('sort_by'),
+                use_auth: formData.get('use_auth') === 'on'
+            };
+            
+            fetch('/scrape', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'started') {
+                    showStatus('Scraping started...', 'running');
+                    document.getElementById('startBtn').disabled = true;
+                    document.getElementById('stopBtn').disabled = false;
+                    startStatusPolling();
+                }
+            })
+            .catch(error => {
+                showStatus('Error starting scraping: ' + error, 'error');
+            });
+        }
+        
+        function stopScraping() {
+            if (statusInterval) {
+                clearInterval(statusInterval);
+            }
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            showStatus('Scraping stopped', 'completed');
+        }
+        
+        function startStatusPolling() {
+            statusInterval = setInterval(() => {
+                fetch('/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.is_running) {
+                        stopScraping();
+                        refreshStatus();
+                    } else {
+                        updateProgress(data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error polling status:', error);
+                });
+            }, 2000);
+        }
+        
+        function updateProgress(data) {
+            const progress = (data.current_page / data.total_pages) * 100;
+            showStatus(`Scraping page ${data.current_page}/${data.total_pages} - Found ${data.books_found} books`, 'running');
+        }
+        
+        function refreshStatus() {
+            fetch('/metadata')
+            .then(response => response.json())
+            .then(data => {
+                updateStats(data);
+                updateMetadataTable(data.data);
+            })
+            .catch(error => {
+                console.error('Error refreshing status:', error);
+            });
+        }
+        
+        function updateStats(data) {
+            document.getElementById('stats').style.display = 'flex';
+            document.getElementById('totalBooks').textContent = data.total;
+            
+            // Calculate other stats from data
+            const coversDownloaded = data.data.filter(book => book.cover_downloaded === 'YES').length;
+            const filesDownloaded = data.data.filter(book => book.file_downloaded === 'YES').length;
+            const pendingDownloads = data.data.filter(book => book.download_status === 'PENDING').length;
+            
+            document.getElementById('coversDownloaded').textContent = coversDownloaded;
+            document.getElementById('filesDownloaded').textContent = filesDownloaded;
+            document.getElementById('pendingDownloads').textContent = pendingDownloads;
+        }
+        
+        function updateMetadataTable(books) {
+            const tbody = document.getElementById('metadataBody');
+            tbody.innerHTML = '';
+            
+            books.forEach(book => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${book.title || 'N/A'}</td>
+                    <td>${book.author || 'N/A'}</td>
+                    <td>${book.year || 'N/A'}</td>
+                    <td>${book.language || 'N/A'}</td>
+                    <td>${book.cover_downloaded || 'NO'}</td>
+                    <td>${book.file_downloaded || 'NO'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            document.getElementById('metadataTable').style.display = 'block';
+        }
+        
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+        }
+        
+        // Initial load
+        refreshStatus();
+    </script>
+</body>
+</html>
